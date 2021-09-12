@@ -1,36 +1,42 @@
-import '../css/style.css'
-import '../css/form.css'
-import Head from 'next/head'
-import Link from 'next/link'
+import React from 'react';
+import Head from 'next/head';
+import PropTypes from 'prop-types';
+import {AnimatePresence, useIsPresent} from "framer-motion";
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import theme from '../src/theme';
 
-function MyApp({ Component, pageProps }) {
+export default function MyApp(props) {
+  const { Component, pageProps, router } = props;
+
+  React.useEffect(() => {
+    // Remove the server-side injected CSS.
+    const jssStyles = document.querySelector('#jss-server-side');
+    if (jssStyles) {
+      jssStyles.parentElement.removeChild(jssStyles);
+    }
+  }, []);
+  const isPresent = useIsPresent();
+  React.useEffect(() => {
+    !isPresent && console.log("I've been removed!")
+  }, [isPresent])
   return (
-    <>
+    <React.Fragment>
       <Head>
-        <title>Pet Care App</title>
+        <title>Melad Samuel</title>
+        <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width" />
       </Head>
-
-      <div className="top-bar">
-        <div className="nav">
-          <Link href="/">
-            <a>Home</a>
-          </Link>
-          <Link href="/new">
-            <a>Add Pet</a>
-          </Link>
-        </div>
-
-        <img
-          id="title"
-          src="https://upload.wikimedia.org/wikipedia/commons/1/1f/Pet_logo_with_flowers.png"
-          alt="pet care logo"
-        ></img>
-      </div>
-      <div className="grid wrapper">
-        <Component {...pageProps} />
-      </div>
-    </>
-  )
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AnimatePresence exitBeforeEnter initial={false}>
+          <Component {...pageProps} key={router.route}/>
+        </AnimatePresence>
+      </ThemeProvider>
+    </React.Fragment>
+  );
 }
 
-export default MyApp
+MyApp.propTypes = {
+  Component: PropTypes.elementType.isRequired,
+  pageProps: PropTypes.object.isRequired,
+};

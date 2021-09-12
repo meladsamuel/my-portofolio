@@ -1,202 +1,169 @@
-import { useState } from 'react'
-import { useRouter } from 'next/router'
-import { mutate } from 'swr'
+import { forwardRef, Fragment, useReducer, useState } from 'react';
+import Box from '@mui/material/Box';
+import TextField from '@mui/material/TextField';
+import SendIcon from '@mui/icons-material/Send';
+import MuiAlert from '@mui/material/Alert';
+import Slide from '@mui/material/Slide';
+import Snackbar from '@mui/material/Snackbar';
+import LoadingButton from '@mui/lab/LoadingButton';
 
-const Form = ({ formId, petForm, forNewPet = true }) => {
-  const router = useRouter()
-  const contentType = 'application/json'
-  const [errors, setErrors] = useState({})
-  const [message, setMessage] = useState('')
-
-  const [form, setForm] = useState({
-    name: petForm.name,
-    owner_name: petForm.owner_name,
-    species: petForm.species,
-    age: petForm.age,
-    poddy_trained: petForm.poddy_trained,
-    diet: petForm.diet,
-    image_url: petForm.image_url,
-    likes: petForm.likes,
-    dislikes: petForm.dislikes,
-  })
-
-  /* The PUT method edits an existing entry in the mongodb database. */
-  const putData = async (form) => {
-    const { id } = router.query
-
-    try {
-      const res = await fetch(`/api/pets/${id}`, {
-        method: 'PUT',
-        headers: {
-          Accept: contentType,
-          'Content-Type': contentType,
+const Alert = forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
+function Transition(props) {
+  return <Slide {...props} direction="left" />;
+}
+const initialState = {
+  form: { name: '', email: '', content: '' },
+  errors: {},
+  loading: false,
+  response: { type: 'success', message: '' },
+};
+const formReducer = (state, action) => {
+  switch (action.type) {
+    case 'onChange':
+      const oldState = { ...state };
+      oldState.form[action.payload.name] = action.payload.value;
+      return oldState;
+    case 'onSend':
+      return { ...state, loading: true, errors: {} };
+    case 'onError':
+      return { ...state, errors: action.payload, loading: false };
+    case 'removeResponse':
+      return { ...state, response: {} };
+    case 'onComplete':
+      return {
+        form: { name: '', email: '', content: '' },
+        errors: {},
+        loading: false,
+        response: {
+          type: action.payload.type,
+          message: action.payload.message,
         },
-        body: JSON.stringify(form),
-      })
-
-      // Throw error with status code in case Fetch API req failed
-      if (!res.ok) {
-        throw new Error(res.status)
-      }
-
-      const { data } = await res.json()
-
-      mutate(`/api/pets/${id}`, data, false) // Update the local data without a revalidation
-      router.push('/')
-    } catch (error) {
-      setMessage('Failed to update pet')
-    }
+      };
   }
+};
+const postData = async (form) => {
+  const response = await fetch('/api/messages', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(form),
+  });
+  if (!response.ok)
+    throw new Error('your message can not receive you can try later');
+  return await response.json();
+};
 
-  /* The POST method adds a new entry in the mongodb database. */
-  const postData = async (form) => {
-    try {
-      const res = await fetch('/api/pets', {
-        method: 'POST',
-        headers: {
-          Accept: contentType,
-          'Content-Type': contentType,
-        },
-        body: JSON.stringify(form),
-      })
+const Form = () => {
+  const [state, dispatch] = useReducer(formReducer, initialState);
 
-      // Throw error with status code in case Fetch API req failed
-      if (!res.ok) {
-        throw new Error(res.status)
-      }
-
-      router.push('/')
-    } catch (error) {
-      setMessage('Failed to add pet')
-    }
-  }
-
-  const handleChange = (e) => {
-    const target = e.target
-    const value =
-      target.name === 'poddy_trained' ? target.checked : target.value
-    const name = target.name
-
-    setForm({
-      ...form,
-      [name]: value,
-    })
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    const errs = formValidate()
-    if (Object.keys(errs).length === 0) {
-      forNewPet ? postData(form) : putData(form)
-    } else {
-      setErrors({ errs })
-    }
-  }
-
-  /* Makes sure pet info is filled for pet name, owner name, species, and image url*/
   const formValidate = () => {
-    let err = {}
-    if (!form.name) err.name = 'Name is required'
-    if (!form.owner_name) err.owner_name = 'Owner is required'
-    if (!form.species) err.species = 'Species is required'
-    if (!form.image_url) err.image_url = 'Image URL is required'
-    return err
-  }
+    let err = {};
+    if (!state.form.name) err.name = 'Please insert your name';
+    if (!state.form.email)
+      err.email = 'please insert your email to response to you';
+    if (!state.form.content) err.content = 'Please put your message';
+    return err;
+  };
+
+  const handleChange = (event) => {
+    dispatch({ type: 'onChange', payload: event.target });
+  };
+
+  const handleClose = async () => dispatch({ type: 'removeResponse' });
+
+  const handleSubmit = async (event) => {
+    dispatch({ type: 'onSend' });
+    event.preventDefault();
+    const errs = formValidate();
+    if (Object.keys(errs).length > 0)
+      return dispatch({ type: 'onError', payload: { ...errs } });
+    try {
+      const data = await postData(state.form);
+      dispatch({ type: 'onComplete', payload: data });
+    } catch (e) {
+      console.log(e);
+      dispatch({
+        type: 'onComplete',
+        payload: { type: 'error', message: e.message },
+      });
+    }
+  };
 
   return (
-    <>
-      <form id={formId} onSubmit={handleSubmit}>
-        <label htmlFor="name">Name</label>
-        <input
-          type="text"
-          maxLength="20"
+    <Fragment>
+      <Box
+        onSubmit={handleSubmit}
+        component="form"
+        sx={{ '& > :not(style)': { mt: 2 } }}
+      >
+        <TextField
+          fullWidth
           name="name"
-          value={form.name}
+          value={state.form.name}
+          label="Full Name"
+          variant="outlined"
           onChange={handleChange}
-          required
+          error={Boolean(state.errors.name)}
+          helperText={state.errors?.name}
         />
-
-        <label htmlFor="owner_name">Owner</label>
-        <input
-          type="text"
-          maxLength="20"
-          name="owner_name"
-          value={form.owner_name}
+        <TextField
+          fullWidth
+          name="email"
+          value={state.form.email}
+          label="Email"
+          variant="outlined"
+          type="email"
           onChange={handleChange}
-          required
+          error={Boolean(state.errors.email)}
+          helperText={state.errors?.email}
         />
-
-        <label htmlFor="species">Species</label>
-        <input
-          type="text"
-          maxLength="30"
-          name="species"
-          value={form.species}
+        <TextField
+          fullWidth
+          multiline
+          name="content"
+          value={state.form.content}
+          label="Message"
+          variant="outlined"
+          minRows={3}
+          maxRows={10}
           onChange={handleChange}
-          required
+          error={Boolean(state.errors.content)}
+          helperText={state.errors?.content}
         />
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <LoadingButton
+            loading={state.loading}
+            type="submit"
+            color="primary"
+            variant="contained"
+            loadingPosition="end"
+            endIcon={<SendIcon />}
+          >
+            Send
+          </LoadingButton>
+        </Box>
+      </Box>
+      <Snackbar
+        open={Boolean(state.response.message)}
+        onClose={handleClose}
+        TransitionComponent={Transition}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        key="message"
+      >
+        <Alert
+          onClose={handleClose}
+          severity={state.response.type}
+          sx={{ width: '100%' }}
+        >
+          {state.response.message}
+        </Alert>
+      </Snackbar>
+    </Fragment>
+  );
+};
 
-        <label htmlFor="age">Age</label>
-        <input
-          type="number"
-          name="age"
-          value={form.age}
-          onChange={handleChange}
-        />
-
-        <label htmlFor="poddy_trained">Potty Trained</label>
-        <input
-          type="checkbox"
-          name="poddy_trained"
-          checked={form.poddy_trained}
-          onChange={handleChange}
-        />
-
-        <label htmlFor="diet">Diet</label>
-        <textarea
-          name="diet"
-          maxLength="60"
-          value={form.diet}
-          onChange={handleChange}
-        />
-
-        <label htmlFor="image_url">Image URL</label>
-        <input
-          type="url"
-          name="image_url"
-          value={form.image_url}
-          onChange={handleChange}
-          required
-        />
-
-        <label htmlFor="likes">Likes</label>
-        <textarea
-          name="likes"
-          maxLength="60"
-          value={form.likes}
-          onChange={handleChange}
-        />
-
-        <label htmlFor="dislikes">Dislikes</label>
-        <textarea
-          name="dislikes"
-          maxLength="60"
-          value={form.dislikes}
-          onChange={handleChange}
-        />
-
-        <button type="submit" className="btn">
-          Submit
-        </button>
-      </form>
-      <p>{message}</p>
-      <div>
-        {Object.keys(errors).map((err, index) => (
-          <li key={index}>{err}</li>
-        ))}
-      </div>
-    </>
-  )
-}
-
-export default Form
+export default Form;

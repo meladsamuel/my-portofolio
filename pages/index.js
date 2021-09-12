@@ -1,65 +1,34 @@
-import Link from 'next/link'
-import dbConnect from '../lib/dbConnect'
-import Pet from '../models/Pet'
+import { Fragment } from 'react';
+import Head from 'next/head';
+import Typography from '@mui/material/Typography';
+import Navigation from '../components/Navigation';
+import MainLayout from '../components/MainLayout';
 
-const Index = ({ pets }) => (
-  <>
-    {/* Create a card for each pet */}
-    {pets.map((pet) => (
-      <div key={pet._id}>
-        <div className="card">
-          <img src={pet.image_url} />
-          <h5 className="pet-name">{pet.name}</h5>
-          <div className="main-content">
-            <p className="pet-name">{pet.name}</p>
-            <p className="owner">Owner: {pet.owner_name}</p>
-
-            {/* Extra Pet Info: Likes and Dislikes */}
-            <div className="likes info">
-              <p className="label">Likes</p>
-              <ul>
-                {pet.likes.map((data, index) => (
-                  <li key={index}>{data} </li>
-                ))}
-              </ul>
-            </div>
-            <div className="dislikes info">
-              <p className="label">Dislikes</p>
-              <ul>
-                {pet.dislikes.map((data, index) => (
-                  <li key={index}>{data} </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="btn-container">
-              <Link href="/[id]/edit" as={`/${pet._id}/edit`}>
-                <button className="btn edit">Edit</button>
-              </Link>
-              <Link href="/[id]" as={`/${pet._id}`}>
-                <button className="btn view">View</button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    ))}
-  </>
-)
-
-/* Retrieves pet(s) data from mongodb database */
-export async function getServerSideProps() {
-  await dbConnect()
-
-  /* find all the data in our database */
-  const result = await Pet.find({})
-  const pets = result.map((doc) => {
-    const pet = doc.toObject()
-    pet._id = pet._id.toString()
-    return pet
-  })
-
-  return { props: { pets: pets } }
+export default function Home() {
+  return (
+    <Fragment>
+      <Head>
+        <title>Melad Samuel</title>
+        <meta
+          name="description"
+          content="Hi, I'm melad samuel, i'm a freelancer engineer living in Egypt Passionate about software engineering and IoT."
+        />
+      </Head>
+      <Navigation />
+      <MainLayout>
+        <Typography gutterBottom variant="h2" component="h1">
+          Hi! I&apos;m Melad 👋
+        </Typography>
+        <Typography paragraph color="textSecondary">
+          I&apos;m a freelancer engineer living in Egypt Skilled in python,
+          javascript, PHP, and C++ programming languages. Passionate about
+          software engineering and IoT.
+        </Typography>
+        <Typography paragraph color="textSecondary">
+          I&apos;m planning to ✍️ write technical blog 🧑‍💻 posts here from
+          time to time, also blogging about IoT and electronics.
+        </Typography>
+      </MainLayout>
+    </Fragment>
+  );
 }
-
-export default Index
